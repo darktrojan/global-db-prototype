@@ -16,25 +16,36 @@ class LiveView {
   matches(message) {
     return this.filters.every(filter => filter.matches(message));
   }
+
+  run() {
+    const stmt = connection.createStatement(`SELECT * FROM messages WHERE ${this.sqlClause}`);
+    for (const [name, value] of Object.entries(this.sqlArgs)) {
+      stmt.params[name] = value;
+    }
+    while (stmt.executeStep()) {
+      const row = stmt.row;
+      console.log(row);
+    }
+  }
 }
 
 class SingleFolderFilter {
   folder;
-  rowid;
+  id;
 
   constructor(folder) {
     this.folder = folder;
-    this.rowid = folder.rowid;
+    this.id = folder.id;
   }
 
   get sqlClause() {
     return "folder = :folder";
   }
   get sqlArgs() {
-    return { folder: this.rowid };
+    return { folder: this.id };
   };
   matches(message) {
-    return message.folder == this.rowid;
+    return message.folder == this.id;
   }
 }
 
@@ -44,7 +55,7 @@ class SingleFolderAndDescendantsFilter {
 
   constructor(folder) {
     this.folder = folder;
-    this.rowids = [folder.rowid, ...folder.descendants.map(f => f.rowid)];
+    this.rowids = [folder.id, ...folder.descendants.map(f => f.id)];
   }
 
   get sqlClause() {

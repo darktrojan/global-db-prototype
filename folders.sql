@@ -1,4 +1,4 @@
-CREATE TABLE folders (name CHAR, lft INTEGER, rgt INTEGER, flags INTEGER);
+CREATE TABLE folders (id INTEGER PRIMARY KEY, name CHAR, lft INTEGER, rgt INTEGER, flags INTEGER);
 
 INSERT INTO folders (name, lft, rgt, flags) VALUES
   ('', 1, 72, 0),

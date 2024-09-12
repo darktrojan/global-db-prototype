@@ -9,18 +9,18 @@ var FolderController = {
     this.folders.clear();
     let parent = null;
 
-    const stmt = connection.createStatement("SELECT rowid, name, lft, rgt, flags FROM folders ORDER BY lft ASC");
+    const stmt = connection.createStatement("SELECT id, name, lft, rgt, flags FROM folders ORDER BY lft ASC");
     while (stmt.executeStep()) {
       const row = stmt.row;
-      let current = this.folders.get(row.rowid);
+      let current = this.folders.get(row.id);
       if (current) {
         current.name = row.name;
         current.left = row.lft;
         current.right = row.rgt;
         current.flags = row.flags;
       } else {
-        current = new FolderObject(row.rowid, row.name, row.lft, row.rgt, row.flags);
-        this.folders.set(row.rowid, current);
+        current = new FolderObject(row.id, row.name, row.lft, row.rgt, row.flags);
+        this.folders.set(row.id, current);
       }
 
       while (parent && current.left > parent.right) {
@@ -39,11 +39,11 @@ var FolderController = {
 
   findAncestors(left, right) {
     const ancestors = [];
-    const stmt = connection.createStatement("SELECT rowid FROM folders WHERE lft < :lft AND rgt > :rgt ORDER BY lft DESC");
+    const stmt = connection.createStatement("SELECT id FROM folders WHERE lft < :lft AND rgt > :rgt ORDER BY lft DESC");
     stmt.params.lft = left;
     stmt.params.rgt = right;
     while (stmt.executeStep()) {
-      ancestors.push(this.folders.get(stmt.row.rowid));
+      ancestors.push(this.folders.get(stmt.row.id));
     }
     stmt.reset();
     stmt.finalize();
@@ -52,11 +52,11 @@ var FolderController = {
 
   findDescendants(left, right) {
     const descendants = [];
-    const stmt = connection.createStatement("SELECT rowid FROM folders WHERE lft > :lft AND rgt < :rgt ORDER BY lft ASC");
+    const stmt = connection.createStatement("SELECT id FROM folders WHERE lft > :lft AND rgt < :rgt ORDER BY lft ASC");
     stmt.params.lft = left;
     stmt.params.rgt = right;
     while (stmt.executeStep()) {
-      descendants.push(this.folders.get(stmt.row.rowid));
+      descendants.push(this.folders.get(stmt.row.id));
     }
     stmt.reset();
     stmt.finalize();
@@ -103,39 +103,39 @@ var FolderController = {
     connection.beginTransaction();
     try {
       // Remember the rows of the folder and its descendants.
-      let stmt = connection.createStatement("CREATE TEMPORARY TABLE foo AS SELECT rowid FROM folders WHERE lft >= :childLeft AND rgt <= :childRight");
+      let stmt = connection.createStatement("CREATE TEMPORARY TABLE foo AS SELECT id FROM folders WHERE lft >= :childLeft AND rgt <= :childRight");
       stmt.params.childLeft = childLeft;
       stmt.params.childRight = childRight;
       stmt.execute();
 
       // Shift all lft values in the adjacent block by the size of the folder block.
-      stmt = connection.createStatement("UPDATE folders SET lft=lft + :childSize WHERE lft >= :adjacentLeft AND lft <= :adjacentRight RETURNING rowid, lft");
+      stmt = connection.createStatement("UPDATE folders SET lft=lft + :childSize WHERE lft >= :adjacentLeft AND lft <= :adjacentRight RETURNING id, lft");
       stmt.params.childSize = childSize;
       stmt.params.adjacentLeft = adjacentLeft;
       stmt.params.adjacentRight = adjacentRight;
       while (stmt.executeStep()) {
         const row = stmt.row;
-        const folder = this.folders.get(row.rowid);
+        const folder = this.folders.get(row.id);
         folder.left = row.lft;
       }
 
       // Shift all rgt values in the adjacent block by the size of the folder block.
-      stmt = connection.createStatement("UPDATE folders SET rgt=rgt + :childSize WHERE rgt >= :adjacentLeft AND rgt <= :adjacentRight RETURNING rowid, rgt");
+      stmt = connection.createStatement("UPDATE folders SET rgt=rgt + :childSize WHERE rgt >= :adjacentLeft AND rgt <= :adjacentRight RETURNING id, rgt");
       stmt.params.childSize = childSize;
       stmt.params.adjacentLeft = adjacentLeft;
       stmt.params.adjacentRight = adjacentRight;
       while (stmt.executeStep()) {
         const row = stmt.row;
-        const folder = this.folders.get(row.rowid);
+        const folder = this.folders.get(row.id);
         folder.right = row.rgt;
       }
 
       // Shift all rows for the folder by the size of the adjacent block.
-      stmt = connection.createStatement("UPDATE folders SET lft=lft + :adjacentSize, rgt=rgt + :adjacentSize WHERE rowid IN foo RETURNING rowid, lft, rgt");
+      stmt = connection.createStatement("UPDATE folders SET lft=lft + :adjacentSize, rgt=rgt + :adjacentSize WHERE id IN foo RETURNING id, lft, rgt");
       stmt.params.adjacentSize = adjacentSize;
       while (stmt.executeStep()) {
         const row = stmt.row;
-        const folder = this.folders.get(row.rowid);
+        const folder = this.folders.get(row.id);
         folder.left = row.lft;
         folder.right = row.rgt;
       }
@@ -153,19 +153,19 @@ var FolderController = {
   create(name, at) {
     connection.beginTransaction();
     try {
-      let stmt = connection.createStatement("UPDATE folders SET lft = lft + 2 WHERE lft >= :at RETURNING rowid, lft");
+      let stmt = connection.createStatement("UPDATE folders SET lft = lft + 2 WHERE lft >= :at RETURNING id, lft");
       stmt.params.at = at;
       while (stmt.executeStep()) {
         const row = stmt.row;
-        const folder = this.folders.get(row.rowid);
+        const folder = this.folders.get(row.id);
         folder.left = row.lft;
       }
 
-      stmt = connection.createStatement("UPDATE folders SET rgt = rgt + 2 WHERE rgt >= :at RETURNING rowid, rgt");
+      stmt = connection.createStatement("UPDATE folders SET rgt = rgt + 2 WHERE rgt >= :at RETURNING id, rgt");
       stmt.params.at = at;
       while (stmt.executeStep()) {
         const row = stmt.row;
-        const folder = this.folders.get(row.rowid);
+        const folder = this.folders.get(row.id);
         folder.right = row.rgt;
       }
 
@@ -193,21 +193,21 @@ var FolderController = {
       stmt.params.rgt = right;
       stmt.execute();
 
-      stmt = connection.createStatement("UPDATE folders SET lft = lft - :size WHERE lft > :rgt RETURNING rowid, lft");
+      stmt = connection.createStatement("UPDATE folders SET lft = lft - :size WHERE lft > :rgt RETURNING id, lft");
       stmt.params.size = right - left + 1;
       stmt.params.rgt = right;
       while (stmt.executeStep()) {
         const row = stmt.row;
-        const folder = this.folders.get(row.rowid);
+        const folder = this.folders.get(row.id);
         folder.left = row.lft;
       }
 
-      stmt = connection.createStatement("UPDATE folders SET rgt = rgt - :size WHERE rgt > :rgt RETURNING rowid, rgt");
+      stmt = connection.createStatement("UPDATE folders SET rgt = rgt - :size WHERE rgt > :rgt RETURNING id, rgt");
       stmt.params.size = right - left + 1;
       stmt.params.rgt = right;
       while (stmt.executeStep()) {
         const row = stmt.row;
-        const folder = this.folders.get(row.rowid);
+        const folder = this.folders.get(row.id);
         folder.right = row.rgt;
       }
 
@@ -222,7 +222,7 @@ var FolderController = {
   },
 
   dump() {
-    const stmt = connection.createStatement("SELECT rowid, * FROM folders ORDER BY lft ASC");
+    const stmt = connection.createStatement("SELECT id, * FROM folders ORDER BY lft ASC");
     while (stmt.executeStep()) {
       console.log(stmt.row);
     }
@@ -232,8 +232,8 @@ var FolderController = {
 class FolderObject {
   children = [];
 
-  constructor(rowid, name, left, right, flags) {
-    this.rowid = rowid;
+  constructor(id, name, left, right, flags) {
+    this.id = id;
     this.name = name;
     this.left = left;
     this.right = right;
@@ -291,7 +291,7 @@ class FolderObject {
       if (child.left > this.right) {
         FolderController.move(child, { newLeft: this.right });
       } else if (child.right == this.right - 1) {
-        throw new Error(`${child.rowid} would not move`);
+        throw new Error(`${child.id} would not move`);
       } else {
         FolderController.move(child, { newRight: this.right - 1 });
       }
@@ -304,13 +304,13 @@ class FolderObject {
     }
 
     if (!this.children.includes(before)) {
-      throw new Error(`${before.rowid} is not a child of ${this.rowid}`);
+      throw new Error(`${before.id} is not a child of ${this.id}`);
     }
 
     if (child.left > before.left) {
       FolderController.move(child, { newLeft: before.left });
     } else if (child.right == before.left - 1) {
-      throw new Error(`${child.rowid} would not move`);
+      throw new Error(`${child.id} would not move`);
     } else {
       FolderController.move(child, { newRight: before.left - 1 });
     }
@@ -321,10 +321,10 @@ class FolderObject {
   }
 
   drawTree(level = 0) {
-    console.log(this.left, `${"  ".repeat(level)} [${this.rowid}] ${this.name} (${this.type}, ${this.nearestType})`);
+    console.log(this.left, `${"  ".repeat(level)} [${this.id}] ${this.name} (${this.type}, ${this.nearestType})`);
     for (let subfolder of this.children) {
       subfolder.drawTree(level + 1);
     }
-    console.log(this.right, `${"  ".repeat(level)} [${this.rowid}] /${this.name}`);
+    console.log(this.right, `${"  ".repeat(level)} [${this.id}] /${this.name}`);
   }
 }
