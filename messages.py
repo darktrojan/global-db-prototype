@@ -39,7 +39,9 @@ with open('messages.mbox') as infile:
             folder = year_folders.get(date.year) or 2
             flags = 0
             if random() > 0.5:
-                flags |= 1
+                flags |= 1  # unread
+            if random() > 0.8:
+                flags |= 4  # flagged
 
             current["Date"] = int(date.timestamp()) * 1000
             cursor.execute(
