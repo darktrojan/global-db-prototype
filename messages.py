@@ -1,4 +1,5 @@
 from datetime import datetime
+from random import random
 import sqlite3
 
 year_folders = {
@@ -25,7 +26,8 @@ cursor.execute("""
         msgdate INTEGER,
         msgfrom TEXT,
         msgsubject TEXT,
-        folder INTEGER REFERENCES folders(id)
+        folder INTEGER REFERENCES folders(id),
+        flags INTEGER
     )
 """)
 
@@ -35,16 +37,20 @@ with open('messages.mbox') as infile:
         if line == '\n' and 'Date' in current:
             date = datetime.strptime(current["Date"], '%a, %d %b %Y %H:%M:%S %z')
             folder = year_folders.get(date.year) or 2
+            flags = 0
+            if random() > 0.5:
+                flags |= 1
 
             current["Date"] = int(date.timestamp()) * 1000
             cursor.execute(
-                "INSERT INTO messages VALUES(:msgid, :msgdate, :msgfrom, :msgsubject, :folder)",
+                "INSERT INTO messages VALUES(:msgid, :msgdate, :msgfrom, :msgsubject, :folder, :flags)",
                 {
                     'msgid': current.get("Message-ID"),
                     'msgdate': current.get("Date"),
                     'msgfrom': current.get("From"),
                     'msgsubject': current.get("Subject"),
-                    'folder': folder
+                    'folder': folder,
+                    'flags': flags
                 }
             )
             current = {}
